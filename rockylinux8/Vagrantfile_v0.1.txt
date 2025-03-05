@@ -1,7 +1,10 @@
 Vagrant.configure("2") do |config|
   config.vm.box = "bento/rockylinux-8"
   # Disk 확장설정 추가
-  config.disksize.size = "50GB"
+  # VirtualBox에서만 동작하는 설정이므로 Hyper-V에서는 제외
+  if Vagrant.has_plugin?("vagrant-disksize")
+    config.disksize.size = "50GB"
+  end
 
   config.vm.provider "hyperv" do |h|
     h.memory = 8192  # RAM 크기 (MB) - 8GB
