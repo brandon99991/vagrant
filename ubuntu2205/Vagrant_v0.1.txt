@@ -1,0 +1,49 @@
+Vagrant.configure("2") do |config|
+  config.vm.box = "generic/ubuntu2204"
+  # Disk 확장설정 추가
+  config.disksize.size = "50GB"
+
+  config.vm.provider "hyperv" do |h|
+    h.memory = 8192  # RAM 크기 (MB) - 8GB
+    h.cpus = 4       # CPU 개수
+    h.vmname = "ubuntu2204" # VM 이름 설정
+
+    # Hyper-V는 동적 메모리 설정을 강제하지 않도록 함
+    h.maxmemory = 8192  # 최대 메모리를 최소 메모리와 동일하게 설정 (고정)
+  end
+
+  # 네트워크 설정
+  # config.vm.network "public_network", bridge: "outSwitch01", ip: "192.168.35.50"
+  config.vm.network "private_network", bridge: "outSwitch01", ip: "192.168.35.50"
+
+
+  # 프로비저닝 스크립트 (root 암호 설정 포함)
+  config.vm.provision "shell", inline: <<-SHELL
+    echo "root:vagrant" | sudo chpasswd
+    sudo apt-get update -y
+    sudo apt-get upgrade -y
+
+  # Netplan 설정 파일 정확하게 생성
+  sudo tee /etc/netplan/01-netcfg.yaml > /dev/null <<EOF
+network:
+  version: 2
+  ethernets:
+    eth0:
+      dhcp4: no
+      addresses:
+        - 192.168.35.50/24
+      gateway4: 192.168.35.1
+      nameservers:
+        addresses:
+          - 8.8.8.8
+          - 8.8.4.4
+EOF
+
+    # 파일 권한 올바르게 설정
+    sudo chmod 600 /etc/netplan/01-netcfg.yaml
+
+    # Netplan 적용
+    sudo netplan generate
+    sudo netplan apply
+  SHELL
+end
