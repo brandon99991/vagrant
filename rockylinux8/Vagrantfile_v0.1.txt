@@ -1,0 +1,40 @@
+Vagrant.configure("2") do |config|
+  config.vm.box = "bento/rockylinux-8"
+  # Disk 확장설정 추가
+  config.disksize.size = "50GB"
+
+  config.vm.provider "hyperv" do |h|
+    h.memory = 8192  # RAM 크기 (MB) - 8GB
+    h.cpus = 4       # CPU 개수
+    h.vmname = "rockylinux8" # VM 이름 설정
+
+    # Hyper-V는 동적 메모리 설정을 강제하지 않도록 함
+    h.maxmemory = 8192  # 최대 메모리를 최소 메모리와 동일하게 설정 (고정)
+  end
+
+  # 네트워크 설정
+  # config.vm.network "public_network", bridge: "outSwitch01", ip: "192.168.35.60"
+  config.vm.network "private_network", bridge: "outSwitch01", ip: "192.168.35.60"
+
+  # **SMB 공유 폴더 비활성화**
+  config.vm.synced_folder ".", "/vagrant", disabled: true
+
+  # 프로비저닝 스크립트 (root 암호 설정 포함)
+  config.vm.provision "shell", inline: <<-SHELL
+    echo "root:vagrant" | sudo chpasswd
+    sudo dnf update -y
+    sudo dnf upgrade -y
+
+# 활성화된 네트워크 인터페이스 이름 자동 감지
+    INTERFACE=$(nmcli -t -f DEVICE con show --active | head -n 1)
+
+  # 인터페이스가 감지되지 않았을 경우 기본값 eth0 사용
+    if [ -z "$INTERFACE" ]; then
+      INTERFACE="eth0"
+    fi
+
+  # 네트워크 설정 적용
+    sudo nmcli connection modify "$INTERFACE" ipv4.addresses 192.168.35.60/24 ipv4.gateway 192.168.35.1 ipv4.dns "8.8.8.8 8.8.4.4" ipv4.method manual
+    sudo nmcli connection up "$INTERFACE"
+  SHELL
+end
