@@ -1,1 +1,121 @@
+Vagrant.configure("2") do |config|
+  config.vm.box = "bento/rockylinux-8"
+  # Disk 확장설정 추가
+  # VirtualBox에서만 동작하는 설정이므로 Hyper-V에서는 제외
+  if Vagrant.has_plugin?("vagrant-disksize")
+    config.disksize.size = "50GB"
+  end
 
+  config.vm.provider "hyperv" do |h|
+    h.memory = 8192  # RAM 크기 (MB) - 8GB
+    h.cpus = 4       # CPU 개수
+    h.vmname = "rocky-cicd-server" # VM 이름 설정
+
+    # Hyper-V는 동적 메모리 설정을 강제하지 않도록 함
+    h.maxmemory = 8192  # 최대 메모리를 최소 메모리와 동일하게 설정 (고정)
+end
+
+# 호스트네임 설정
+config.vm.hostname = "rocky-cicd-server"
+
+# 네트워크 설정
+config.vm.network "private_network", bridge: "outSwitch01", ip: "192.168.35.70"
+
+# **SMB 공유 폴더 비활성화**
+config.vm.synced_folder ".", "/vagrant", disabled: true
+
+# 프로비저닝 스크립트 (root 암호 설정 포함)
+config.vm.provision "shell", inline: <<-SHELL
+echo "root:vagrant" | sudo chpasswd
+sudo dnf update -y
+sudo dnf upgrade -y
+
+# 활성화된 네트워크 인터페이스 이름 자동 감지
+INTERFACE=$(nmcli -t -f DEVICE con show --active | head -n 1)
+
+# 인터페이스가 감지되지 않았을 경우 기본값 eth0 사용
+if [ -z "$INTERFACE" ]; then
+   INTERFACE="eth0"
+fi
+
+# 네트워크 설정 적용
+sudo nmcli connection modify "$INTERFACE" ipv4.addresses 192.168.35.70/24 ipv4.gateway 192.168.35.1 ipv4.dns "8.8.8.8 8.8.4.4" ipv4.method manual
+sudo nmcli connection up "$INTERFACE"
+
+echo '======== Rocky Linux 기본 설정 ========' 
+
+echo '======== 타임존 설정 및 동기화========'
+timedatectl set-timezone Asia/Seoul
+timedatectl set-ntp true
+
+echo '======== [1-3] Disk 확장 설정 ========'
+yum install -y cloud-utils-growpart
+#growpart /dev/sda 4      #파티션 크기 확장
+#xfs_growfs /dev/sda4     #파일 시스템 크기 확장
+
+#yum install -y yum-utils iproute-tc
+
+echo '======== 호스트네임 설정 ========'
+sudo hostnamectl set-hostname rocky-cicd-server
+
+echo '======== /etc/hosts 파일 설정 ========'
+cat << EOF >> /etc/hosts
+192.168.35.70 rocky-cicd-server
+EOF
+
+echo '======== 방화벽 해제 ========'
+systemctl stop firewalld && systemctl disable firewalld
+#swapoff -a && sed -i '/ swap / s/^/#/' /etc/fstab
+
+echo '======== Kubectl 설치 ========'
+
+echo '======== Kubernetes repo 설정 ========'
+cat <<EOF | sudo tee /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://pkgs.k8s.io/core:/stable:/v1.27/rpm/
+enabled=1
+gpgcheck=1
+repo_gpgcheck=0
+gpgkey=https://pkgs.k8s.io/core:/stable:/v1.27/rpm/repodata/repomd.xml.key
+EOF
+
+echo '======== Kubectl 설치 ========'
+yum install -y kubectl-1.27.2-150500.1.1.x86_64 --disableexcludes=kubernetes
+
+echo '======== 도커 설치 ========'
+# https://download.docker.com/linux/centos/8/x86_64/stable/Packages/ 저장소 경로
+yum install -y yum-utils
+yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+yum install -y docker-ce-3:23.0.6-1.el8 docker-ce-cli-1:23.0.6-1.el8 containerd.io-1.6.21-3.1.el8
+systemctl daemon-reload
+systemctl enable --now docker
+
+echo '======== OpenJDK 설치  ========'
+# yum list --showduplicates java-17-openjdk
+yum install -y java-17-openjdk
+
+echo '======== Gradle 설치  ========'
+yum -y install wget unzip
+wget https://services.gradle.org/distributions/gradle-7.6.1-bin.zip -P ~/
+unzip -d /opt/gradle ~/gradle-*.zip
+cat <<EOF |tee /etc/profile.d/gradle.sh
+export GRADLE_HOME=/opt/gradle/gradle-7.6.1
+export PATH=/opt/gradle/gradle-7.6.1/bin:${PATH}
+EOF
+chmod +x /etc/profile.d/gradle.sh
+source /etc/profile.d/gradle.sh
+
+echo '======== Git 설치  ========'
+# 기존엔 git-2.43.0-1.el8 버전을 Fix하였으나 Repository에 최신 버전만 업로드 됨으로 수정
+yum install -y git
+
+echo '======== Jenkins 설치  ========'
+wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+yum install -y jenkins-2.440.2-1.1
+systemctl enable jenkins
+systemctl start jenkins
+
+  SHELL
+end
