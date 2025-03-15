@@ -83,14 +83,6 @@ EOF
 echo '======== Kubectl 설치 ========'
 yum install -y kubectl-1.27.2-150500.1.1.x86_64 --disableexcludes=kubernetes
 
-echo '======== 도커 설치 ========'
-# https://download.docker.com/linux/centos/8/x86_64/stable/Packages/ 저장소 경로
-yum install -y yum-utils
-yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
-yum install -y docker-ce-3:23.0.6-1.el8 docker-ce-cli-1:23.0.6-1.el8 containerd.io-1.6.21-3.1.el8
-systemctl daemon-reload
-systemctl enable --now docker
-
 echo '======== OpenJDK 설치  ========'
 # yum list --showduplicates java-17-openjdk
 yum install -y java-17-openjdk
@@ -116,6 +108,14 @@ rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
 yum install -y jenkins-2.440.2-1.1
 systemctl enable jenkins
 systemctl start jenkins
+
+echo '======== 도커 설치 ========'
+# https://download.docker.com/linux/centos/8/x86_64/stable/Packages/ 저장소 경로
+yum install -y yum-utils
+yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+yum install -y docker-ce-3:23.0.6-1.el8 docker-ce-cli-1:23.0.6-1.el8 containerd.io-1.6.21-3.1.el8
+systemctl daemon-reload
+systemctl enable --now docker
 
   SHELL
 end
