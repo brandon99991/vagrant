@@ -133,7 +133,7 @@ chown $(id -u):$(id -g) $HOME/.kube/config
 
 kubectl create -f  https://raw.githubusercontent.com/k8s-1pro/install/main/ground/k8s-1.27/calico-3.26.4/calico.yaml
 kubectl create -f https://raw.githubusercontent.com/k8s-1pro/install/main/ground/k8s-1.27/calico-3.26.4/calico-custom.yaml
-kubectl taint nodes rocky-k8s-master node-role.kubernetes.io/control-plane-
+kubectl taint nodes rocky-k8s-master-test node-role.kubernetes.io/control-plane-
 
 echo "source <(kubectl completion bash)" >> ~/.bashrc
 echo 'alias k=kubectl' >>~/.bashrc
@@ -143,3 +143,4 @@ kubectl create -f  https://raw.githubusercontent.com/k8s-1pro/install/main/groun
 kubectl create -f https://raw.githubusercontent.com/k8s-1pro/install/main/ground/k8s-1.27/metrics-server-0.6.3/metrics-server.yaml
   SHELL
 end
+
