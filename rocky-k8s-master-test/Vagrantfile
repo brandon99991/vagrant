@@ -19,7 +19,8 @@ end
 config.vm.hostname = "rocky-k8s-master-test"
 
 # 네트워크 설정
-config.vm.network "private_network", bridge: "outSwitch01", ip: "192.168.35.80"
+config.vm.network "public_network", bridge: "outSwitch01", ip: "192.168.35.80"
+#config.vm.network "private_network", bridge: "inSwitch01", ip: "192.168.35.80"
 
 # **SMB 공유 폴더 비활성화**
 config.vm.synced_folder ".", "/vagrant", disabled: true
@@ -143,4 +144,5 @@ kubectl create -f  https://raw.githubusercontent.com/k8s-1pro/install/main/groun
 kubectl create -f https://raw.githubusercontent.com/k8s-1pro/install/main/ground/k8s-1.27/metrics-server-0.6.3/metrics-server.yaml
   SHELL
 end
+
 
